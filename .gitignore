@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# PyCharm project files
+.idea/
+
+# VSCode settings (可选)
+.vscode/
+
+# Data and models (如有大文件可解开注释)
+data/
+models/
+results/
+*.h5
+*.hdf5
+*.pkl
+*.joblib
+*.csv
+*.xlsx
+
+# Logs and outputs
+*.log
+*.out
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test, coverage and build
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+
+# Others
+*.swp
+*.bak
+*.tmp
