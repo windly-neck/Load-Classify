@@ -5,36 +5,60 @@ from torch.utils.data import DataLoader, TensorDataset
 from src.model import Week1DCNN
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
+
+def compute_class_weight(y):
+    """
+    计算每个类别的权重，类别样本数越少权重越大。
+    返回: torch.tensor([w0, w1, w2], dtype=torch.float32)
+    """
+    import numpy as np
+    classes = np.unique(y)
+    counts = np.array([(y == c).sum() for c in classes])
+    weight = 1.0 / (counts + 1e-8)
+    weight = weight / weight.sum() * len(classes)  # 归一化到类别数
+    w_full = np.zeros(int(classes.max()) + 1, dtype=np.float32)
+    for c, w in zip(classes, weight):
+        w_full[int(c)] = w
+    import torch
+    return torch.tensor(w_full, dtype=torch.float32)
 
 def train(
     model,
-    X,
-    y,
-    batch_size=32,
-    val_ratio=0.3,
-    epochs=20,
+    X_train,
+    y_train,
+    X_val,
+    y_val,
+    batch_size=64,
+    epochs=30,
     lr=1e-3,
     min_lr=1e-5,
     lr_scheduler='cosine',
-    weight_decay=0.0,
+    weight_decay=1e-3,  # 默认加大正则化
     device='cpu',
     scheduler_step=10,
     scheduler_gamma=0.5,
-    shuffle=True
+    shuffle=True,
+    early_stopping_patience=5,
+    verbose=True,
+    use_class_weight=True
 ):
     """
-    X, y: numpy数组，X.shape=(N, 672, 2), y.shape=(N,)
-    val_ratio: 验证集比例
+    X_train, y_train: 训练集，numpy数组
+    X_val, y_val: 验证集，numpy数组
+    early_stopping_patience: 验证集loss超过patience个epoch不下降则提前停止
     """
-    # 划分训练集和验证集
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=val_ratio, random_state=42, stratify=y)
-    train_set = TensorDataset(torch.tensor(X_train), torch.tensor(y_train))
-    val_set = TensorDataset(torch.tensor(X_val), torch.tensor(y_val))
+    train_set = TensorDataset(torch.tensor(X_train, dtype=torch.float32), torch.tensor(y_train, dtype=torch.long))
+    val_set = TensorDataset(torch.tensor(X_val, dtype=torch.float32), torch.tensor(y_val, dtype=torch.long))
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=shuffle)
     val_loader = DataLoader(val_set, batch_size=batch_size)
     model = model.to(device)
-    criterion = nn.CrossEntropyLoss()
+    if use_class_weight:
+        class_weight = compute_class_weight(y_train).to(device)
+        criterion = nn.CrossEntropyLoss(weight=class_weight)
+        if verbose:
+            print(f"使用类别权重: {class_weight.cpu().numpy()}")
+    else:
+        criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     if lr_scheduler == 'cosine':
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=min_lr)
@@ -43,6 +67,9 @@ def train(
     else:
         scheduler = None
     train_losses, val_losses = [], []
+    best_val_loss = float('inf')
+    best_state = None
+    patience_counter = 0
     for epoch in range(epochs):
         model.train()
         total_loss = 0
@@ -68,7 +95,22 @@ def train(
         if scheduler is not None:
             scheduler.step()
         cur_lr = optimizer.param_groups[0]['lr']
-        print(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Acc: {acc:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f} | LR: {cur_lr:.6f}")
+        if verbose:
+            print(f"Epoch {epoch+1}/{epochs} | Loss: {train_loss:.4f} | Acc: {acc:.4f} | Val Loss: {val_loss:.4f} | Val Acc: {val_acc:.4f} | LR: {cur_lr:.6f}")
+        # Early Stopping
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_state = model.state_dict()
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            if patience_counter >= early_stopping_patience:
+                if verbose:
+                    print(f"Early stopping at epoch {epoch+1}. Best val loss: {best_val_loss:.4f}")
+                break
+    # 恢复最佳模型
+    if best_state is not None:
+        model.load_state_dict(best_state)
     # 绘制loss曲线
     plt.figure()
     plt.plot(train_losses, label='Train Loss')

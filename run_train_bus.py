@@ -1,8 +1,5 @@
-from src.dataset import load_all_data_by_category
-import numpy as np
+from src.utils import preprocess_and_save_all_files
 
-
-civilian_data = load_all_data_by_category("business")
-np.save('data/classified/business_data.npy', civilian_data)
-print(civilian_data.shape)
-print(civilian_data[0])
+input_dir = "data/raw/test/business"  # 输入文件夹
+output_dir = "data/processed/test/business"  # 输出文件夹
+preprocess_and_save_all_files(input_dir, output_dir, use_weekly=True)
