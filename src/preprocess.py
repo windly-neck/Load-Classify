@@ -1,9 +1,7 @@
 #%%
 import pandas as pd
 import numpy as np
-import os
-import matplotlib.pyplot as plt
-import time
+
 
 class DayDataLoader:
     def __init__(self, max_missing=10, mad_thresh=4, method='interpolate'):
@@ -27,7 +25,7 @@ class DayDataLoader:
             df.loc[mask, col] = np.nan
         return df
 
-    def remove_invalid_samples(self, samples, zero_thresh=64):
+    def remove_invalid_samples(self, samples, zero_thresh=64*7):
         if len(samples) == 0:
             return samples
         valid_mask = []
@@ -81,14 +79,7 @@ class DayDataLoader:
             raise ValueError("Unknown method")
         if feats.isnull().any().any():
             return None
-        # 对每一列做归一化
-        for col in feats.columns:
-            min_v = feats[col].min()
-            max_v = feats[col].max()
-            if max_v > min_v:
-                feats[col] = (feats[col] - min_v) / (max_v - min_v)
-            else:
-                feats[col] = 0.0
+        # 不做归一化，直接返回原始数据
         return feats.to_numpy()
 
     def load_and_process(self, file_path):
@@ -115,3 +106,58 @@ class DayDataLoader:
               f"Too many zeros: {self.too_many_zero_count}, Duplicates removed: {self.duplicate_count}")
         return samples
 
+    def get_weekly_samples_from_file(self, file_path):
+        """
+        读取文件，返回以周为单位的样本，shape=(样本数, 672, 2)
+        每个周样本的起点间隔七天（不重叠）。
+        并统计各类无效样本数量。
+        """
+        self.too_many_nan_count = 0
+        self.too_many_zero_count = 0
+        self.duplicate_count = 0
+        invalid_week_count = 0
+        total_week_count = 0
+        removed_zero_week = 0
+        removed_dup_week = 0
+
+        df = pd.read_excel(file_path, usecols=['IV_Date', 'IV_Time', 'kVARh_D', 'kWh_D'], na_values=["missing"])
+        df = self.global_outlier_process(df)
+        # 按天分组
+        day_groups = list(df.groupby('IV_Date'))
+        day_feats = []
+        for date, group in day_groups:
+            arr = self.handle_missing_one_day(group)
+            day_feats.append(arr)
+        # 按7天为一组，步长为7，生成周样本
+        week_samples = []
+        for i in range(0, len(day_feats) - 6, 7):
+            total_week_count += 1
+            week = day_feats[i:i+7]
+            if any([d is None for d in week]):
+                invalid_week_count += 1
+                continue  # 有无效天，跳过
+            week_arr = np.concatenate(week, axis=0)  # (672, 2)
+            # 对每周整体归一化
+            min_v = week_arr.min(axis=0)
+            max_v = week_arr.max(axis=0)
+            normed = (week_arr - min_v) / (max_v - min_v + 1e-8)
+            week_samples.append(normed)
+        if len(week_samples) == 0:
+            print(f"File: {file_path} has no valid weekly samples after processing.")
+            print(f"Total weeks: {total_week_count}, Invalid weeks: {invalid_week_count}, "
+                  f"Too many NaN days: {self.too_many_nan_count}, Too many zeros: {self.too_many_zero_count}")
+            return np.empty((0, 672, 2))
+        week_samples = np.stack(week_samples)
+        # 去除全零周样本
+        before_zero = len(week_samples)
+        week_samples = self.remove_invalid_samples(week_samples, zero_thresh=64*7)  # 7天
+        removed_zero_week = before_zero - len(week_samples)
+        # 去除重复周样本
+        before_dup = len(week_samples)
+        week_samples = self.remove_duplicate_samples(week_samples, corr_thresh=0.99)
+        removed_dup_week = before_dup - len(week_samples)
+        print(f"File: {file_path}, Weekly samples: {len(week_samples)}, Total weeks: {total_week_count}, "
+              f"Invalid weeks: {invalid_week_count}, Too many NaN days: {self.too_many_nan_count}, "
+              f"Too many zeros: {self.too_many_zero_count}, Removed zero weeks: {removed_zero_week}, "
+              f"Removed duplicate weeks: {removed_dup_week}")
+        return week_samples

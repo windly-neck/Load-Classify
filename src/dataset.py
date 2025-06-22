@@ -19,17 +19,17 @@ def load_all_data_by_category(category, max_files=None):
     all_samples = []
     for file in files:
         file_path = os.path.join(data_dir, file)
-        data = loader.load_and_process(file_path)
+        data = loader.get_weekly_samples_from_file(file_path)
         if data.shape[0] > 0:
             all_samples.append(data)
         print_memory_usage()
     if all_samples:
         return np.concatenate(all_samples, axis=0)
     else:
-        return np.empty((0, 96, 2))
+        return np.empty((0, 672, 2))
 
 # 用法示例
 # civilian_data = load_all_data_by_category("civilian")
-# np.save('../data/classfied/civilian_data.npy', civilian_data)
+# np.save('../data/classified/civilian_data.npy', civilian_data)
 # print(civilian_data.shape)
 # print(civilian_data[0])
