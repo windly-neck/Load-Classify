@@ -13,6 +13,7 @@ venv.bak/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
+notebooks/
 
 # PyCharm project files
 .idea/
@@ -60,3 +61,6 @@ build/
 *.swp
 *.bak
 *.tmp
+
+# Ignore specific files
+
