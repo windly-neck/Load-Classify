@@ -200,8 +200,8 @@ def split_train_val_test_by_file(category, val_ratio=0.2, test_ratio=0.2, random
     folder = os.path.join('data', 'processed', category)
     files = sorted([f for f in os.listdir(folder) if f.endswith('.npy')])
     n_files = len(files)
-    n_val = max(1, int(n_files * val_ratio))
-    n_test = max(1, int(n_files * test_ratio))
+    n_val = int(n_files * val_ratio)
+    n_test = int(n_files * test_ratio)
     n_train = n_files - n_val - n_test
     idx = np.arange(n_files)
     np.random.shuffle(idx)

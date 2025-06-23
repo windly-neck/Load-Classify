@@ -9,12 +9,13 @@ import matplotlib.pyplot as plt
 def compute_class_weight(y):
     """
     计算每个类别的权重，类别样本数越少权重越大。
+    采用sqrt倒数，避免极端权重。
     返回: torch.tensor([w0, w1, w2], dtype=torch.float32)
     """
     import numpy as np
     classes = np.unique(y)
     counts = np.array([(y == c).sum() for c in classes])
-    weight = 1.0 / (counts + 1e-8)
+    weight = 1.0 / (np.sqrt(counts) + 1e-8)
     weight = weight / weight.sum() * len(classes)  # 归一化到类别数
     w_full = np.zeros(int(classes.max()) + 1, dtype=np.float32)
     for c, w in zip(classes, weight):
@@ -28,13 +29,13 @@ def train(
     y_train,
     X_val,
     y_val,
-    batch_size=64,
+    batch_size=32,
     epochs=30,
-    lr=1e-3,
+    lr=1e-4,
     min_lr=1e-5,
     lr_scheduler='cosine',
     weight_decay=1e-3,  # 默认加大正则化
-    device='cpu',
+    device='cuda' if torch.cuda.is_available() else 'cpu', #线上cuda,本地cpu
     scheduler_step=10,
     scheduler_gamma=0.5,
     shuffle=True,
