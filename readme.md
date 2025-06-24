@@ -74,4 +74,4 @@ pip install -r requirements.txt
 
 ## 预测结果
 
-![截屏2025-06-24 20.43.50](/Users/yangry1/Desktop/截屏2025-06-24 20.43.50.png)
+![预测结果](./预测结果.png)
