@@ -71,3 +71,7 @@ pip install -r requirements.txt
 - 请确保原始数据文件夹命名规范。
 - 结果文件和中间文件会自动生成在对应目录。
 - 推荐先用`run_test.py`在有标签数据上调参，再用`run_model.py`批量分类。
+
+## 预测结果
+
+![截屏2025-06-24 20.43.50](/Users/yangry1/Desktop/截屏2025-06-24 20.43.50.png)
